@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# i3 + Polybar + Rofi (Sage Green Transparent Theme) Setup for Debian
-# Inspired by Hyprland aesthetics
+# i3 + Hyprland-like Transparent Polybar Setup for Debian
+# Inspired by Hyprland aesthetics: clean, minimal, transparent, nature-themed
 # Last updated: 2025-11-23
 
 set -e
@@ -16,14 +16,12 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 if [ "$EUID" -eq 0 ]; then
-    error "لا تشغل هذا السكريبت كـ root!"
+    error "لا تقم بتشغيل هذا السكريبت كـ root!"
 fi
 
-log "التحديث الأولي للنظام..."
+log "🔄 تحديث النظام وتثبيت الحزم..."
 #sudo apt update && sudo apt upgrade -y
 
-# تثبيت الحزم المطلوبة
-log "تثبيت الحزم الأساسية..."
 PKGS=(
     i3-wm
     polybar
@@ -40,7 +38,6 @@ PKGS=(
     acpi
     network-manager-gnome
     git
-    build-essential
     libuv1-dev
     libcairo2-dev
     libpango1.0-dev
@@ -65,14 +62,13 @@ PICOM_DIR="$CONFIG_DIR/picom"
 mkdir -p "$I3_DIR" "$POLYBAR_DIR" "$ROFI_DIR" "$DUNST_DIR" "$ALACRITTY_DIR" "$PICOM_DIR"
 
 # === i3 config ===
-log "إعداد i3 مع Polybar..."
+log "⚙️  إعداد i3..."
 
 cat > "$I3_DIR/config" << 'EOF'
 font pango: FiraCode Nerd Font 10
 
-# الألوان (نمط أنيق)
 client.focused          #889988 #889988 #2e3440 #ffffff
-client.focused_inactive #4c566a #4c566a #eceff4 #4c566a
+client.focused_inactive #4c566a #4c566a #d8dee9 #4c566a
 client.unfocused        #434c5e #434c5e #d8dee9 #434c5e
 client.urgent           #bf616a #bf616a #ffffff #bf616a
 
@@ -84,7 +80,6 @@ bindsym $mod+Shift+q kill
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'خروج؟' -B 'نعم' 'i3-msg exit'"
 
-# التنقل والتحكم
 bindsym $mod+h focus left
 bindsym $mod+j focus down
 bindsym $mod+k focus up
@@ -99,7 +94,6 @@ bindsym $mod+f fullscreen toggle
 bindsym $mod+b split h
 bindsym $mod+v split v
 
-# وضع التحجيم
 mode "resize" {
     bindsym h resize shrink width 10 px or 10 ppt
     bindsym j resize grow height 10 px or 10 ppt
@@ -110,46 +104,63 @@ mode "resize" {
 }
 bindsym $mod+r mode "resize"
 
-# تشغيل Polybar تلقائيًا
-exec_always --no-startup-id polybar main
+# تشغيل المكونات عند البدء
+exec_always --no-startup-id feh --bg-scale ~/.config/backgrounds/hyprland-like.jpg
 exec_always --no-startup-id picom --config ~/.config/picom/picom.conf
 exec_always --no-startup-id dunst
-exec_always --no-startup-id feh --bg-scale /usr/share/backgrounds/forest.png
+exec_always --no-startup-id polybar main
 EOF
 
-# === Polybar Config ===
-log "إعداد Polybar..."
+# === Polybar (شفاف مثل Hyprland) ===
+log "🎨 إعداد Polybar شفاف بأسلوب Hyprland..."
+
+mkdir -p "$POLYBAR_DIR/scripts"
+cat > "$POLYBAR_DIR/scripts/volume.sh" << 'EOF'
+#!/bin/sh
+VOL=$(pactl get-sink-volume @DEFAULT_SINK@ | head -n1 | cut -f2 -d' ' | tr -d '%')
+MUTE=$(pactl get-sink-mute @DEFAULT_SINK@ | cut -d' ' -f2)
+if [ "$MUTE" = "yes" ]; then
+    echo ""
+else
+    echo " $VOL%"
+fi
+EOF
+
+cat > "$POLYBAR_DIR/scripts/brightness.sh" << 'EOF'
+#!/bin/sh
+BRIGHTNESS=$(brightnessctl get)
+MAX=$(brightnessctl max)
+PERCENT=$((BRIGHTNESS * 100 / MAX))
+echo " $PERCENT%"
+EOF
+
+chmod +x "$POLYBAR_DIR/scripts"/*.sh
 
 cat > "$POLYBAR_DIR/config.ini" << 'EOF'
 [colors]
-background = ${xrdb:color0:#2e3440}
-foreground = ${xrdb:color7:#d8dee9}
+background = #2e3440CC   ; شفاف 80%
+foreground = #d8dee9
 sage = #889988
-red = #bf616a
+cyan = #88c0d0
 green = #a3be8c
 yellow = #ebcb8b
-blue = #81a1c1
+red = #bf616a
 
 [bar/main]
 width = 100%
-height = 30
+height = 32
 radius = 0
 fixed-center = true
 
 background = ${colors.background}
 foreground = ${colors.foreground}
 
-line-size = 2
-line-color = ${colors.sage}
-
 border-size = 0
-padding-left = 0
-padding-right = 0
+padding-left = 2
+padding-right = 2
+module-margin = 1
 
-module-margin-left = 1
-module-margin-right = 1
-
-font-0 = FiraCode Nerd Font:style=Regular:size=10;2
+font-0 = FiraCode Nerd Font:size=10;2
 font-1 = Noto Color Emoji:scale=10;0
 
 modules-left = i3
@@ -158,10 +169,8 @@ modules-right = brightness volume network battery date
 
 tray-position = right
 tray-padding = 2
-tray-detached = false
 
 wm-restack = i3
-override-redirect = false
 
 [module/i3]
 type = internal/i3
@@ -170,8 +179,7 @@ index-sort = true
 wrapping-scroll = false
 
 label-focused = %name%
-label-focused-background = ${colors.sage}
-label-focused-underline = ${colors.sage}
+label-focused-foreground = ${colors.sage}
 label-focused-padding = 2
 
 label-unfocused = %name%
@@ -184,31 +192,26 @@ label-urgent-padding = 2
 [module/rofi-launcher]
 type = custom/text
 content = ""
-content-foreground = ${colors.sage}
-content-background = ${colors.background}
+content-foreground = ${colors.cyan}
 click-left = rofi -show drun
 
 [module/date]
 type = internal/date
 interval = 1
-date = %a %d %b
-date-alt = %A, %d %B %Y
 time = %H:%M
-time-alt = %H:%M:%S
 format = <label>
-label = %date% %time%
+label = %time%
 label-foreground = ${colors.foreground}
 
 [module/battery]
 type = internal/battery
 battery = BAT0
 adapter = AC
-full-at = 99
-format-charging = <animation-charging> <label-charging>
 format-discharging = <ramp-capacity> <label-discharging>
+format-charging = <animation-charging> <label-charging>
 format-full = <label-full>
-label-charging = %percentage%%
 label-discharging = %percentage%%
+label-charging = %percentage%%
 label-full = 
 
 ramp-capacity-0 = 
@@ -225,46 +228,41 @@ animation-charging-4 = 
 animation-charging-framerate = 750
 
 [module/volume]
-type = internal/pulseaudio
-format-volume = <ramp-volume> <label-volume>
-label-volume = %percentage%%
-format-muted = <label-muted>
-label-muted =  MUTE
-
-ramp-volume-0 = 
-ramp-volume-1 = 
-ramp-volume-2 = 
+type = custom/script
+exec = ~/.config/polybar/scripts/volume.sh
+interval = 1
+format = <label>
+click-left = pactl set-sink-mute @DEFAULT_SINK@ toggle
+click-right = pactl set-sink-volume @DEFAULT_SINK@ +5%
+scroll-up = pactl set-sink-volume @DEFAULT_SINK@ +2%
+scroll-down = pactl set-sink-volume @DEFAULT_SINK@ -2%
 
 [module/brightness]
-type = internal/backlight
-card = intel_backlight
-enable-scroll = true
-format = <ramp> <label>
-label = %percentage%%
-ramp-0 = 
-ramp-1 = 
-ramp-2 = 
-ramp-3 = 
-ramp-4 = 
+type = custom/script
+exec = ~/.config/polybar/scripts/brightness.sh
+interval = 1
+format = <label>
+click-right = brightnessctl set +5%
+scroll-up = brightnessctl set +2%
+scroll-down = brightnessctl set -2%
 
 [module/network]
 type = internal/network
 interface = wlan0
-interface-type = wireless
 format-connected = <label-connected>
-label-connected =  %local_ip%
+label-connected = 
 format-disconnected = <label-disconnected>
-label-disconnected = ⚠ Disconnected
+label-disconnected = ⚠
 EOF
 
-# استخدام الواجهة الصحيحة تلقائيًا
+# ضبط واجهة الشبكة تلقائيًا
 INTERFACE=$(ip route | grep '^default' | awk '{print $5}' | head -n1)
 if [ -n "$INTERFACE" ]; then
     sed -i "s/interface = wlan0/interface = $INTERFACE/" "$POLYBAR_DIR/config.ini"
 fi
 
-# === Rofi Theme (شفاف + إطار أخضر زيتي) ===
-log "إعداد Rofi بتصميم شفاف مع إطار أخضر زيتي..."
+# === Rofi (شفاف، دائري، إطار أخضر زيتي) ===
+log "🌀 إعداد Rofi شفاف بإطار أخضر زيتي..."
 
 cat > "$ROFI_DIR/config.rasi" << 'EOF'
 configuration {
@@ -272,18 +270,14 @@ configuration {
     icon-theme: "Papirus";
     font: "FiraCode Nerd Font 11";
     lines: 10;
-    columns: 3;
-    width: 50;
-    location: 0;  /* center */
+    location: 0;
 }
 
 * {
-    background: rgba(46, 52, 64, 0.85);
-    background-alt: rgba(67, 76, 94, 0.85);
+    background: rgba(46, 52, 64, 0.88);
     foreground: #d8dee9;
     selected: #889988;
     border: #889988;
-    border-radius: 20px;
     text-color: @foreground;
 }
 
@@ -291,27 +285,27 @@ window {
     transparency: "real";
     background-color: @background;
     border: 2px solid @border;
-    border-radius: 20px;
-    padding: 20px;
-    width: 400px;
+    border-radius: 22px;
+    padding: 24px;
+    width: 500px;
 }
 
 mainbox {
-    children: [ mode-switcher, inputbar, listview ];
+    children: [ inputbar, listview ];
 }
 
 inputbar {
-    children: [ prompt, entry ];
-    padding: 10px;
+    children: [ entry ];
+    padding: 12px;
 }
 
 entry {
-    background-color: @background-alt;
+    background-color: rgba(67, 76, 94, 0.7);
     text-color: @foreground;
     caret-color: @selected;
-    margin: 5px;
-    border-radius: 10px;
-    padding: 8px;
+    margin: 8px;
+    border-radius: 12px;
+    padding: 10px;
 }
 
 listview {
@@ -323,76 +317,79 @@ listview {
 element {
     background-color: transparent;
     text-color: @foreground;
-    padding: 8px;
-    border-radius: 8px;
+    padding: 10px;
+    border-radius: 10px;
 }
 
 element selected {
     background-color: @selected;
-    text-color: @background;
+    text-color: #2e3440;
 }
 EOF
 
-# === Picom (للشفافية والظلال) ===
-log "إعداد Picom للشفافية..."
+# === Picom (شفافية متقدمة) ===
+log "✨ إعداد Picom للظلال والشفافية..."
 
 cat > "$PICOM_DIR/picom.conf" << 'EOF'
 backend = "glx";
 vsync = true;
-refresh-rate = 60;
 detect-rounded-corners = true;
 detect-client-opacity = true;
 
-# تأثيرات الشفافية
-inactive-opacity = 0.9;
+inactive-opacity = 0.92;
 active-opacity = 1.0;
-frame-opacity = 0.9;
+frame-opacity = 0.95;
 inactive-dim = 0.1;
 blur-method = "dual_kawase";
-blur-strength = 6;
+blur-strength = 8;
 blur-background = true;
-blur-background-frame = false;
 
-# الزوايا المستديرة
-corner-radius = 14;
+corner-radius = 16;
 rounded-corners-exclude = [
   "window_type = 'dock'",
   "window_type = 'desktop'"
 ];
 
-# الظلال
 shadow = true;
-shadow-radius = 12;
-shadow-offset-x = -8;
-shadow-offset-y = -8;
-shadow-opacity = 0.25;
+shadow-radius = 14;
+shadow-offset-x = -7;
+shadow-offset-y = -7;
+shadow-opacity = 0.28;
 shadow-exclude = [
   "name = 'Notification'",
   "class_g = 'Dunst'",
   "class_g ?= 'Rofi'"
 ];
 
-# Rofi خاص (بدون ظل، شفافية كاملة)
+fade = true;
+fade-delta = 4;
+fading = true;
+
 wintypes:
 {
   tooltip = { fade = true; shadow = false; };
   menu = { shadow = false; };
-  dropdown_menu = { shadow = false; };
 };
 EOF
 
-# === خلفية شاشة جميلة ===
-log "تنزيل خلفية حرجية (Forest)..."
-sudo mkdir -p /usr/share/backgrounds
-sudo wget -O /usr/share/backgrounds/forest.png https://raw.githubusercontent.com/adi1090x/forest-linux/master/wallpaper/forest.png
+# === خلفية على طراز Hyprland (طبيعة ضبابية/غابة) ===
+log "🌄 تنزيل خلفية طبيعية شبيهة بـ Hyprland..."
 
-# === تثبيت سكربتات مساعدة (اختياري) ===
-# يمكننا إضافة سكربتات للتحكم بالصوت/السطوع لاحقًا إذا طلبت
+mkdir -p "$HOME/.config/backgrounds"
+BACKGROUND="$HOME/.config/backgrounds/hyprland-like.jpg"
 
+if [ ! -f "$BACKGROUND" ]; then
+    # خلفية رسمية من Hyprland أو بديل مشابه
+    curl -sL "https://raw.githubusercontent.com/hyprwm/hyprland/main/assets/wall_2.png" -o "$BACKGROUND" || \
+    wget -q "https://raw.githubusercontent.com/adi1090x/forest-linux/master/wallpaper/forest.png" -O "$BACKGROUND"
+fi
+
+# === الانتهاء ===
 log "✅ تم التكوين بنجاح!"
-warn "أعد تشغيل i3 (Mod+Shift+r) لرؤية التغييرات."
-log "• اضغط على أيقونة '' في منتصف شريط Polybar لفتح Rofi"
-log "• Rofi سيكون شفافًا مع إطار أخضر زيتي وموقع مركزي"
+warn "🔄 أعد تشغيل i3 بـ (Mod + Shift + R)"
+log "🔹 Polybar شفاف مثل Hyprland"
+log "🔹 Rofi: شفاف، دائري، بإطار أخضر زيتي (#889988)"
+log "🔹 الخلفية: طبيعية، هادئة، مستوحاة من Hyprland"
 
-# نصيحة أخيرة
-warn "إذا لم يظهر Rofi بشكل شفاف، تأكد من أن picom قيد التشغيل."
+# رسالة ترحيب خفيفة
+echo -e "\n${GREEN}تم! استمتع ببيئتك الأنيقة 🌿${NC}"
